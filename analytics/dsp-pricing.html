@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSP pricing analysis — Seattle region</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#edf0f3; --card:#fff; --ink:#17242f; --ink-soft:#55636f; --ink-faint:#8b98a3;
+    --line:#d9dfe4; --blue:#2a78d6; --amber:#dd9500; --red:#cf4340; --green:#0f7a5c;
+    --navy:#14273d; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{font-family:"IBM Plex Sans","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);padding:26px 18px 56px;line-height:1.45}
+  .wrap{max-width:1000px;margin:0 auto}
+  header{background:var(--navy);color:#eef3f8;border-radius:10px;padding:20px 22px 16px;margin-bottom:16px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8fb4dc;margin-bottom:6px}
+  h1{font-size:21px;font-weight:600;letter-spacing:-.01em}
+  .period{font-family:var(--mono);font-size:12.5px;color:#b9c9d8;margin-top:6px}
+  .controls{display:flex;align-items:center;gap:10px;margin:16px 0 14px;flex-wrap:wrap}
+  .controls label{font-size:13px;color:var(--ink-soft);font-weight:500}
+  select{font:inherit;font-size:14px;padding:8px 34px 8px 12px;min-width:220px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2355636f' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center}
+  select:focus{outline:2px solid var(--blue);outline-offset:1px}
+  .basis-chip{font-family:var(--mono);font-size:11.5px;padding:5px 10px;border-radius:999px;background:#e2ecf8;color:#1d4e8f;border:1px solid #c3d8f1}
+  .basis-chip.applied{background:#e2f5ee;color:#0c5f47;border-color:#b9e4d4}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:13px 15px}
+  .kpi .lbl{font-size:11.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;font-weight:500}
+  .kpi .val{font-family:var(--mono);font-size:24px;font-weight:600}
+  .kpi .sub{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);margin-top:2px}
+  .kpi .val.green{color:var(--green)} .kpi .val.red{color:var(--red)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:18px 16px 12px;margin-bottom:18px}
+  h2{font-size:15px;font-weight:600;margin-bottom:2px}
+  .note{font-size:12.5px;color:var(--ink-soft);margin-bottom:10px}
+  .chartbox{position:relative;height:380px}
+  .insight{border-left:4px solid var(--blue);background:#f4f8fd;border-radius:0 9px 9px 0;padding:14px 18px;margin-bottom:18px}
+  .insight h2{margin-bottom:8px}
+  .insight p{font-size:13.5px;margin-bottom:8px}
+  .insight p:last-child{margin-bottom:0}
+  .insight strong{font-family:var(--mono);font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono)}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);font-weight:600;font-family:"IBM Plex Sans",sans-serif}
+  th:first-child,td:first-child{text-align:left}
+  td.heat{border-radius:3px}
+  .tbl-scroll{overflow-x:auto}
+  footer{margin-top:22px;font-size:12px;color:var(--ink-faint);line-height:1.65}
+  footer strong{color:var(--ink-soft)}
+  @media(max-width:640px){.chartbox{height:320px}h1{font-size:17px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <span>GOFO · Seattle region · last-mile operations</span>
+      <a href="../index.html" style="color:#8fb4dc;text-decoration:none;font-family:var(--mono);font-size:11px;letter-spacing:0.08em;">&larr; BACK TO NETWORK MAP</a>
+    </div>
+    <h1>DSP pricing analysis — avg price by station &amp; network</h1>
+    <div class="period" id="periodLine">volume-weighted by each DSP's own ZIP volume</div>
+  </header>
+
+  <div class="controls">
+    <label for="stSel">View</label>
+    <select id="stSel"><option value="ALL" selected>All Seattle region (network-wide)</option></select>
+    <span class="basis-chip" id="psChip">base prices</span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="lbl">Avg price (selection)</div><div class="val" id="kpiAvg">—</div><div class="sub">$/pkg, volume-weighted</div></div>
+    <div class="kpi"><div class="lbl">Highest-priced DSP</div><div class="val green" id="kpiHi">—</div><div class="sub" id="kpiHiSub"></div></div>
+    <div class="kpi"><div class="lbl">Lowest-priced DSP</div><div class="val red" id="kpiLo">—</div><div class="sub" id="kpiLoSub"></div></div>
+    <div class="kpi"><div class="lbl">Price spread</div><div class="val" id="kpiSpread">—</div><div class="sub">max − min across DSPs</div></div>
+  </div>
+
+  <div class="insight"><h2>Analysis summary</h2><div id="insightBody"></div></div>
+
+  <div class="card">
+    <h2 id="chartTitle">Avg price per DSP</h2>
+    <div class="note">Bars = volume-weighted avg $/pkg for each DSP. Dashed line = selection average. Hover for volume served.</div>
+    <div class="chartbox"><canvas id="dspChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>DSP × station price matrix</h2>
+    <div class="note">Volume-weighted avg $/pkg per DSP in each station where it operates; darker green = higher price. Overall = station values combined by each station's pkg-volume share of the region (normalized over the DSP's stations; hover a cell for the weight). Vol = daily pkg volume attributed to the DSP.</div>
+    <div class="tbl-scroll"><table id="matrix"></table></div>
+  </div>
+
+  <footer>
+    <strong>Method.</strong> Chart &amp; KPIs: for each DSP, avg price = Σ(ZIP price × DSP volume in that ZIP) ÷ Σ(DSP volume), over priced ZIPs only. Matrix: each cell is the DSP's volume-weighted avg within that station; a DSP's Overall value combines its station cells weighted by each station's pkg-volume share of the region, normalized over the stations it operates in (hover a cell for weights); the Station avg row is the station's volume-weighted avg over all priced ZIPs, and the region Overall is Σ(station avg × station volume share).<br>
+    <strong>Price sheet.</strong> This page reads data/price_adjustments.csv the same way the map does — commit an updated CSV and these figures recompute on next load. The chip next to the selector shows whether adjustments are active.
+  </footer>
+</div>
+
+<!-- ============================================================= -->
+<!-- >>> EDIT DATA HERE <<<  Per-ZIP records below: "v" = volume,  -->
+<!-- "p" = price, "d" = {DSP: volume}. Ctrl+F a ZIP like "94952".  -->
+<!-- Do NOT edit anything else. Replace this whole line to update.  -->
+<!-- ============================================================= -->
+<script id="pricedata" type="application/json">[{"z":"83646","s":"BOI","p":1.8,"v":989,"d":{"CTE":989}},{"z":"83642","s":"BOI","p":1.8,"v":912,"d":{"WBI":912}},{"z":"98271","s":"PAE","p":2.0,"v":875,"d":{"WDA":875}},{"z":"83686","s":"BOI","p":1.8,"v":840,"d":{"WBI":840}},{"z":"83854","s":"GEG","p":1.9,"v":825,"d":{"INL":825}},{"z":"83709","s":"BOI","p":1.8,"v":799,"d":{"WBI":799}},{"z":"98225","s":"PAE","p":2.05,"v":674,"d":{"WDA":674}},{"z":"83687","s":"BOI","p":1.8,"v":674,"d":{"WBI":674}},{"z":"83605","s":"BOI","p":1.8,"v":606,"d":{"WBI":606}},{"z":"99336","s":"TRC","p":2.05,"v":589,"d":{"YLU":589}},{"z":"99208","s":"GEG","p":2.05,"v":585,"d":{"CAE":585}},{"z":"98273","s":"PAE","p":2.0,"v":577,"d":{"MIL":577}},{"z":"83815","s":"GEG","p":1.9,"v":565,"d":{"INL":565}},{"z":"97402","s":"EUG","p":2.05,"v":560,"d":{"SDG":560}},{"z":"83704","s":"BOI","p":1.8,"v":534,"d":{"WBI":534}},{"z":"97301","s":"EUG","p":1.85,"v":527,"d":{"LGD":527}},{"z":"83651","s":"BOI","p":1.8,"v":524,"d":{"WBI":524}},{"z":"97045","s":"PDX","p":1.9,"v":520,"d":{"PML":520}},{"z":"97230","s":"PDX","p":1.8,"v":513,"d":{"XAS":513}},{"z":"83634","s":"BOI","p":1.8,"v":510,"d":{"WBI":510}},{"z":"98902","s":"YKM","p":2.05,"v":502,"d":{"YLU":502}},{"z":"98264","s":"PAE","p":2.05,"v":502,"d":{"WDA":502}},{"z":"98682","s":"PDX","p":1.8,"v":494,"d":{"PML":494}},{"z":"98229","s":"PAE","p":2.05,"v":491,"d":{"WDA":491}},{"z":"99206","s":"GEG","p":1.9,"v":481,"d":{"CAE":481}},{"z":"98052","s":"SEA","p":2.05,"v":479,"d":{"INL":479}},{"z":"83616","s":"BOI","p":1.8,"v":472,"d":{"CTE":472}},{"z":"98003","s":"SEA","p":1.9,"v":469,"d":{"MIL":469}},{"z":"97233","s":"PDX","p":1.8,"v":468,"d":{"XAS":468}},{"z":"99205","s":"GEG","p":1.9,"v":468,"d":{"CAE":468}},{"z":"98391","s":"SEA","p":1.9,"v":465,"d":{"INL":465}},{"z":"98208","s":"SEA","p":2.0,"v":464,"d":{"PML":464}},{"z":"97080","s":"PDX","p":1.8,"v":464,"d":{"XAS":464}},{"z":"98012","s":"SEA","p":2.05,"v":458,"d":{"MIL":458}},{"z":"98908","s":"YKM","p":2.05,"v":455,"d":{"YLU":455}},{"z":"98092","s":"SEA","p":1.9,"v":454,"d":{"INL":454}},{"z":"97305","s":"EUG","p":1.85,"v":447,"d":{"LGD":447}},{"z":"97236","s":"PDX","p":1.8,"v":437,"d":{"XAS":437}},{"z":"97229","s":"PDX","p":1.8,"v":436,"d":{"LGD":436}},{"z":"99337","s":"TRC","p":2.05,"v":428,"d":{"YLU":428}},{"z":"99352","s":"TRC","p":2.05,"v":427,"d":{"YLU":427}},{"z":"98374","s":"SEA","p":1.9,"v":425,"d":{"INL":425}},{"z":"98042","s":"SEA","p":1.9,"v":423,"d":{"INL":423}},{"z":"98023","s":"SEA","p":1.9,"v":417,"d":{"MIL":417}},{"z":"97478","s":"EUG","p":2.05,"v":404,"d":{"SDG":404}},{"z":"97223","s":"PDX","p":1.8,"v":403,"d":{"XAS":403}},{"z":"83705","s":"BOI","p":1.8,"v":403,"d":{"CTE":403}},{"z":"83814","s":"GEG","p":2.05,"v":399,"d":{"INL":399}},{"z":"97007","s":"PDX","p":1.9,"v":393,"d":{"XAS":393}},{"z":"97030","s":"PDX","p":1.8,"v":389,"d":{"XAS":389}},{"z":"98204","s":"SEA","p":2.0,"v":386,"d":{"PML":386}},{"z":"83714","s":"BOI","p":1.8,"v":386,"d":{"CTE":386}},{"z":"97124","s":"PDX","p":1.8,"v":376,"d":{"LGD":376}},{"z":"98503","s":"SEA","p":2.05,"v":369,"d":{"ECS":369}},{"z":"97303","s":"EUG","p":1.85,"v":369,"d":{"LGD":369}},{"z":"98501","s":"SEA","p":2.05,"v":364,"d":{"ECS":364}},{"z":"97123","s":"PDX","p":1.8,"v":361,"d":{"LGD":361}},{"z":"97477","s":"EUG","p":1.95,"v":361,"d":{"SDG":361}},{"z":"98118","s":"SEA","p":1.95,"v":359,"d":{"ECS":359}},{"z":"99223","s":"GEG","p":2.05,"v":358,"d":{"CAE":358}},{"z":"97302","s":"EUG","p":1.85,"v":354,"d":{"LGD":354}},{"z":"98274","s":"PAE","p":2.0,"v":353,"d":{"MIL":353}},{"z":"97206","s":"PDX","p":1.8,"v":351,"d":{"LGD":351}},{"z":"83713","s":"BOI","p":1.8,"v":351,"d":{"WBI":351}},{"z":"83706","s":"BOI","p":1.8,"v":349,"d":{"CTE":349}},{"z":"98034","s":"SEA","p":1.95,"v":346,"d":{"HFE":346}},{"z":"98002","s":"SEA","p":1.9,"v":343,"d":{"MIL":343}},{"z":"98032","s":"SEA","p":1.9,"v":342,"d":{"HFE":342}},{"z":"98661","s":"PDX","p":1.8,"v":341,"d":{"CAE":341}},{"z":"98168","s":"SEA","p":1.9,"v":339,"d":{"HFE":339}},{"z":"98087","s":"PAE","p":1.95,"v":339,"d":{"MIL":339}},{"z":"98226","s":"PAE","p":2.05,"v":338,"d":{"WDA":338}},{"z":"98031","s":"SEA","p":1.9,"v":337,"d":{"INL":337}},{"z":"98198","s":"SEA","p":1.9,"v":336,"d":{"HFE":336}},{"z":"97266","s":"PDX","p":1.8,"v":333,"d":{"LGD":333}},{"z":"98001","s":"SEA","p":1.9,"v":332,"d":{"MIL":332}},{"z":"98133","s":"SEA","p":1.95,"v":332,"d":{"INL":332}},{"z":"97404","s":"EUG","p":1.95,"v":331,"d":{"SDG":331}},{"z":"99207","s":"GEG","p":1.9,"v":331,"d":{"CAE":331}},{"z":"98901","s":"YKM","p":2.05,"v":330,"d":{"YLU":330}},{"z":"98444","s":"SEA","p":1.9,"v":327,"d":{"PML":327}},{"z":"98604","s":"PDX","p":1.9,"v":325,"d":{"PML":325}},{"z":"98445","s":"SEA","p":1.95,"v":323,"d":{"SDG":323}},{"z":"98030","s":"SEA","p":1.9,"v":321,"d":{"INL":321}},{"z":"98223","s":"PAE","p":2.0,"v":321,"d":{"MIL":321}},{"z":"97401","s":"EUG","p":1.95,"v":320,"d":{"SDG":320}},{"z":"97220","s":"PDX","p":1.8,"v":319,"d":{"LGD":319}},{"z":"99216","s":"GEG","p":1.9,"v":313,"d":{"CAE":313}},{"z":"97006","s":"PDX","p":1.8,"v":311,"d":{"LGD":311}},{"z":"98036","s":"PAE","p":1.95,"v":311,"d":{"MIL":311}},{"z":"98203","s":"PAE","p":2.0,"v":311,"d":{"WDA":311}},{"z":"83669","s":"BOI","p":1.8,"v":304,"d":{"CTE":304}},{"z":"98058","s":"SEA","p":1.9,"v":300,"d":{"INL":300}},{"z":"97405","s":"EUG","p":2.05,"v":300,"d":{"SDG":300}},{"z":"98230","s":"PAE","p":2.05,"v":300,"d":{"WDA":300}},{"z":"97222","s":"PDX","p":1.8,"v":298,"d":{"PML":298}},{"z":"97224","s":"PDX","p":1.8,"v":297,"d":{"XAS":297}},{"z":"98258","s":"PAE","p":2.0,"v":297,"d":{"WDA":297}},{"z":"97086","s":"PDX","p":1.9,"v":294,"d":{"XAS":294}},{"z":"98056","s":"SEA","p":1.95,"v":293,"d":{"INL":293}},{"z":"98404","s":"SEA","p":1.9,"v":292,"d":{"MIL":292}},{"z":"97304","s":"EUG","p":1.95,"v":292,"d":{"LGD":292}},{"z":"97306","s":"EUG","p":1.85,"v":292,"d":{"LGD":292}},{"z":"97267","s":"PDX","p":1.8,"v":285,"d":{"PML":285}},{"z":"98375","s":"SEA","p":1.9,"v":280,"d":{"INL":280}},{"z":"97217","s":"PDX","p":1.8,"v":279,"d":{"PML":279}},{"z":"98662","s":"PDX","p":1.8,"v":278,"d":{"CAE":278}},{"z":"98022","s":"SEA","p":2.05,"v":274,"d":{"HFE":274}},{"z":"83702","s":"BOI","p":1.8,"v":268,"d":{"CTE":268}},{"z":"98238","s":"PAE","p":2.0,"v":266,"d":{"MIL":266}},{"z":"98499","s":"SEA","p":1.9,"v":263,"d":{"PML":263}},{"z":"98038","s":"SEA","p":2.05,"v":262,"d":{"HFE":262}},{"z":"97219","s":"PDX","p":1.8,"v":260,"d":{"XAS":260}},{"z":"98188","s":"SEA","p":1.9,"v":258,"d":{"HFE":258}},{"z":"99338","s":"TRC","p":2.05,"v":258,"d":{"YLU":258}},{"z":"99354","s":"TRC","p":2.05,"v":258,"d":{"YLU":258}},{"z":"98201","s":"PAE","p":2.0,"v":258,"d":{"WDA":258}},{"z":"98059","s":"SEA","p":1.95,"v":255,"d":{"INL":255}},{"z":"98516","s":"SEA","p":2.05,"v":254,"d":{"ECS":254}},{"z":"97202","s":"PDX","p":1.9,"v":253,"d":{"CAE":253}},{"z":"98498","s":"SEA","p":1.9,"v":251,"d":{"PML":251}},{"z":"98103","s":"SEA","p":1.95,"v":250,"d":{"INL":250}},{"z":"99212","s":"GEG","p":2.05,"v":250,"d":{"CAE":250}},{"z":"98409","s":"SEA","p":1.95,"v":248,"d":{"MIL":248}},{"z":"98125","s":"SEA","p":2.05,"v":246,"d":{"PML":246}},{"z":"97211","s":"PDX","p":1.8,"v":246,"d":{"PML":246}},{"z":"97203","s":"PDX","p":1.8,"v":243,"d":{"PML":243}},{"z":"98684","s":"PDX","p":1.8,"v":243,"d":{"PML":243}},{"z":"99016","s":"GEG","p":1.9,"v":243,"d":{"CAE":243}},{"z":"98270","s":"PAE","p":2.0,"v":243,"d":{"WDA":243}},{"z":"97317","s":"EUG","p":1.85,"v":242,"d":{"LGD":242}},{"z":"97322","s":"EUG","p":1.85,"v":240,"d":{"LGD":240}},{"z":"97015","s":"PDX","p":1.9,"v":239,"d":{"XAS":239}},{"z":"98115","s":"SEA","p":2.05,"v":238,"d":{"PML":238}},{"z":"98026","s":"PAE","p":1.95,"v":236,"d":{"MIL":236}},{"z":"98144","s":"SEA","p":1.95,"v":232,"d":{"ECS":232}},{"z":"98033","s":"SEA","p":1.95,"v":231,"d":{"HFE":231}},{"z":"98506","s":"SEA","p":2.05,"v":231,"d":{"ECS":231}},{"z":"98607","s":"PDX","p":1.9,"v":230,"d":{"PML":230}},{"z":"97003","s":"PDX","p":1.8,"v":229,"d":{"LGD":229}},{"z":"97005","s":"PDX","p":1.8,"v":228,"d":{"LGD":228}},{"z":"97060","s":"PDX","p":1.8,"v":228,"d":{"XAS":228}},{"z":"97062","s":"PDX","p":1.8,"v":227,"d":{"XAS":227}},{"z":"98004","s":"SEA","p":2.05,"v":224,"d":{"SDG":224}},{"z":"97132","s":"PDX","p":1.9,"v":224,"d":{"XAS":224}},{"z":"98373","s":"SEA","p":1.95,"v":221,"d":{"SDG":221}},{"z":"98021","s":"SEA","p":2.05,"v":219,"d":{"MIL":219}},{"z":"98466","s":"SEA","p":1.95,"v":218,"d":{"MIL":218}},{"z":"98146","s":"SEA","p":1.9,"v":215,"d":{"HFE":215}},{"z":"98683","s":"PDX","p":1.8,"v":214,"d":{"PML":214}},{"z":"99202","s":"GEG","p":1.9,"v":213,"d":{"CAE":213}},{"z":"99353","s":"TRC","p":2.05,"v":211,"d":{"YLU":211}},{"z":"99217","s":"GEG","p":2.05,"v":211,"d":{"CAE":211}},{"z":"98178","s":"SEA","p":1.95,"v":208,"d":{"INL":208}},{"z":"98372","s":"SEA","p":1.95,"v":208,"d":{"MIL":208}},{"z":"97068","s":"PDX","p":1.8,"v":206,"d":{"PML":206}},{"z":"98942","s":"YKM","p":2.05,"v":206,"d":{"YLU":206}},{"z":"97213","s":"PDX","p":1.8,"v":204,"d":{"LGD":204}},{"z":"98665","s":"PDX","p":1.8,"v":203,"d":{"CAE":203}},{"z":"98011","s":"SEA","p":1.95,"v":201,"d":{"HFE":201}},{"z":"97070","s":"PDX","p":1.9,"v":199,"d":{"XAS":199}},{"z":"98155","s":"SEA","p":2.05,"v":198,"d":{"PML":198}},{"z":"98037","s":"PAE","p":1.95,"v":195,"d":{"MIL":195}},{"z":"98405","s":"SEA","p":1.95,"v":191,"d":{"MIL":191}},{"z":"97013","s":"PDX","p":1.9,"v":191,"d":{"PML":191}},{"z":"97008","s":"PDX","p":1.8,"v":190,"d":{"XAS":190}},{"z":"99037","s":"GEG","p":1.9,"v":189,"d":{"CAE":189}},{"z":"83703","s":"BOI","p":1.8,"v":189,"d":{"CTE":189}},{"z":"98685","s":"PDX","p":1.8,"v":188,"d":{"CAE":188}},{"z":"98006","s":"SEA","p":1.95,"v":186,"d":{"SDG":186}},{"z":"97078","s":"PDX","p":1.8,"v":186,"d":{"LGD":186}},{"z":"97140","s":"PDX","p":1.9,"v":186,"d":{"XAS":186}},{"z":"98371","s":"SEA","p":1.95,"v":185,"d":{"MIL":185}},{"z":"98105","s":"SEA","p":2.05,"v":183,"d":{"PML":183}},{"z":"97321","s":"EUG","p":1.85,"v":181,"d":{"LGD":181}},{"z":"98276","s":"PAE","p":2.05,"v":181,"d":{"WDA":181}},{"z":"98117","s":"SEA","p":1.95,"v":180,"d":{"INL":180}},{"z":"98027","s":"SEA","p":2.05,"v":177,"d":{"HFE":177}},{"z":"98408","s":"SEA","p":1.9,"v":176,"d":{"MIL":176}},{"z":"97225","s":"PDX","p":1.8,"v":175,"d":{"LGD":175}},{"z":"98007","s":"SEA","p":1.95,"v":173,"d":{"SDG":173}},{"z":"98055","s":"SEA","p":1.9,"v":171,"d":{"INL":171}},{"z":"99203","s":"GEG","p":1.9,"v":171,"d":{"CAE":171}},{"z":"97330","s":"EUG","p":1.85,"v":170,"d":{"LGD":170}},{"z":"98106","s":"SEA","p":1.95,"v":167,"d":{"ECS":167}},{"z":"98664","s":"PDX","p":1.8,"v":166,"d":{"CAE":166}},{"z":"98686","s":"PDX","p":1.8,"v":165,"d":{"CAE":165}},{"z":"98422","s":"SEA","p":1.9,"v":162,"d":{"MIL":162}},{"z":"98028","s":"SEA","p":1.95,"v":161,"d":{"HFE":161}},{"z":"97035","s":"PDX","p":1.8,"v":161,"d":{"XAS":161}},{"z":"99218","s":"GEG","p":1.9,"v":160,"d":{"CAE":160}},{"z":"98107","s":"SEA","p":1.95,"v":157,"d":{"INL":157}},{"z":"97212","s":"PDX","p":1.9,"v":155,"d":{"CAE":155}},{"z":"98116","s":"SEA","p":1.95,"v":154,"d":{"ECS":154}},{"z":"99019","s":"GEG","p":1.9,"v":154,"d":{"CAE":154}},{"z":"98072","s":"SEA","p":2.05,"v":153,"d":{"MIL":153}},{"z":"98166","s":"SEA","p":1.9,"v":152,"d":{"HFE":152}},{"z":"97216","s":"PDX","p":1.8,"v":151,"d":{"LGD":151}},{"z":"98029","s":"SEA","p":2.05,"v":150,"d":{"INL":150}},{"z":"98407","s":"SEA","p":1.95,"v":150,"d":{"MIL":150}},{"z":"98043","s":"PAE","p":1.95,"v":148,"d":{"MIL":148}},{"z":"97214","s":"PDX","p":1.9,"v":147,"d":{"CAE":147}},{"z":"99201","s":"GEG","p":2.05,"v":147,"d":{"CAE":147}},{"z":"97113","s":"PDX","p":1.8,"v":146,"d":{"LGD":146}},{"z":"98074","s":"SEA","p":2.05,"v":145,"d":{"INL":145}},{"z":"98008","s":"SEA","p":1.95,"v":144,"d":{"SDG":144}},{"z":"97218","s":"PDX","p":1.8,"v":144,"d":{"LGD":144}},{"z":"98126","s":"SEA","p":1.95,"v":143,"d":{"ECS":143}},{"z":"98467","s":"SEA","p":1.95,"v":135,"d":{"MIL":135}},{"z":"99021","s":"GEG","p":2.05,"v":134,"d":{"CAE":134}},{"z":"98446","s":"SEA","p":1.95,"v":133,"d":{"SDG":133}},{"z":"98005","s":"SEA","p":1.95,"v":128,"d":{"SDG":128}},{"z":"98406","s":"SEA","p":1.95,"v":128,"d":{"MIL":128}},{"z":"98053","s":"SEA","p":2.05,"v":126,"d":{"INL":126}},{"z":"98275","s":"SEA","p":2.0,"v":124,"d":{"PML":124}},{"z":"97024","s":"PDX","p":1.8,"v":121,"d":{"XAS":121}},{"z":"98040","s":"SEA","p":1.95,"v":120,"d":{"SDG":120}},{"z":"97089","s":"PDX","p":1.9,"v":120,"d":{"XAS":120}},{"z":"98057","s":"SEA","p":1.95,"v":118,"d":{"INL":118}},{"z":"97034","s":"PDX","p":1.8,"v":118,"d":{"XAS":118}},{"z":"98075","s":"SEA","p":2.05,"v":117,"d":{"INL":117}},{"z":"98296","s":"SEA","p":2.05,"v":117,"d":{"MIL":117}},{"z":"97027","s":"PDX","p":1.8,"v":117,"d":{"PML":117}},{"z":"97239","s":"PDX","p":1.8,"v":111,"d":{"XAS":111}},{"z":"98148","s":"SEA","p":1.9,"v":110,"d":{"HFE":110}},{"z":"98020","s":"PAE","p":1.95,"v":107,"d":{"MIL":107}},{"z":"97408","s":"EUG","p":2.05,"v":104,"d":{"SDG":104}},{"z":"98177","s":"SEA","p":1.95,"v":101,"d":{"INL":101}},{"z":"98424","s":"SEA","p":1.95,"v":100,"d":{"MIL":100}},{"z":"83712","s":"BOI","p":1.8,"v":97,"d":{"CTE":97}},{"z":"97232","s":"PDX","p":1.9,"v":96,"d":{"CAE":96}},{"z":"97215","s":"PDX","p":1.8,"v":95,"d":{"LGD":95}},{"z":"98663","s":"PDX","p":1.8,"v":94,"d":{"CAE":94}},{"z":"98660","s":"PDX","p":1.8,"v":93,"d":{"CAE":93}},{"z":"98248","s":"PAE","p":2.05,"v":92,"d":{"WDA":92}},{"z":"98136","s":"SEA","p":1.95,"v":89,"d":{"ECS":89}},{"z":"97009","s":"PDX","p":1.9,"v":89,"d":{"XAS":89}},{"z":"98077","s":"SEA","p":2.05,"v":88,"d":{"MIL":88}},{"z":"98418","s":"SEA","p":1.9,"v":84,"d":{"MIL":84}},{"z":"98390","s":"SEA","p":1.95,"v":82,"d":{"MIL":82}},{"z":"99027","s":"GEG","p":2.05,"v":81,"d":{"CAE":81}},{"z":"97210","s":"PDX","p":1.8,"v":76,"d":{"LGD":76}},{"z":"97221","s":"PDX","p":1.8,"v":75,"d":{"XAS":75}},{"z":"98606","s":"PDX","p":1.9,"v":69,"d":{"PML":69}},{"z":"98010","s":"SEA","p":2.05,"v":67,"d":{"HFE":67}},{"z":"98327","s":"SEA","p":2.05,"v":66,"d":{"ECS":66}},{"z":"98354","s":"SEA","p":1.95,"v":66,"d":{"MIL":66}},{"z":"98047","s":"SEA","p":1.95,"v":65,"d":{"MIL":65}},{"z":"98403","s":"SEA","p":1.95,"v":64,"d":{"MIL":64}},{"z":"98402","s":"SEA","p":1.95,"v":61,"d":{"MIL":61}},{"z":"98465","s":"SEA","p":1.95,"v":58,"d":{"MIL":58}},{"z":"98443","s":"SEA","p":1.95,"v":52,"d":{"MIL":52}},{"z":"97227","s":"PDX","p":1.9,"v":51,"d":{"CAE":51}},{"z":"97403","s":"EUG","p":2.05,"v":44,"d":{"SDG":44}},{"z":"98247","s":"PAE","p":2.05,"v":44,"d":{"WDA":44}},{"z":"97115","s":"PDX","p":1.9,"v":38,"d":{"XAS":38}},{"z":"98292","s":"PAE","p":2.0,"v":25,"d":{"MIL":25}},{"z":"97455","s":"EUG","p":2.05,"v":20,"d":{"SDG":20}},{"z":"98039","s":"SEA","p":1.95,"v":15,"d":{"SDG":15}},{"z":"97331","s":"EUG","p":1.85,"v":3,"d":{"LGD":3}},{"z":"99251","s":"GEG","p":2.05,"v":1,"d":{"CAE":1}},{"z":"98687","s":"PDX","p":1.8,"v":0,"d":{"CAE":0}},{"z":"97308","s":"EUG","p":1.85,"v":0,"d":{"LGD":0}},{"z":"97309","s":"EUG","p":1.85,"v":0,"d":{"LGD":0}},{"z":"97310","s":"EUG","p":1.85,"v":0,"d":{"LGD":0}},{"z":"97475","s":"EUG","p":1.95,"v":0,"d":{"SDG":0}},{"z":"98240","s":"PAE","p":2.05,"v":0,"d":{"WDA":0}}]</script>
+<script>
+(function(){
+"use strict";
+const ZIPS = JSON.parse(document.getElementById('pricedata').textContent);
+const STATIONS = [...new Set(ZIPS.map(r=>r.s))].sort();
+{ const dspSet = new Set(); ZIPS.forEach(r=>Object.keys(r.d).forEach(d=>dspSet.add(d)));
+  document.getElementById('periodLine').textContent = ZIPS.length+' ZIPs · '+STATIONS.length+' stations · '+dspSet.size+" DSPs · volume-weighted by each DSP's own ZIP volume"; }
+const $ = id => document.getElementById(id);
+const fmtP = v => '$' + v.toFixed(3);
+
+// populate station selector
+const sel = $('stSel');
+STATIONS.forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s+' station'; sel.appendChild(o); });
+
+function parseCsv(text){
+  const rows=[]; text.split(/\r?\n/).forEach(line=>{
+    const p=line.split(',').map(s=>s.trim().replace(/^"|"$/g,''));
+    if(p.length<2) return; const zip=p[0], price=parseFloat(p[1]);
+    if(/^\d{5}$/.test(zip)&&isFinite(price)&&price>0) rows.push({zip,price});
+  }); return rows;
+}
+
+// stats: for a station filter (or ALL) → per-DSP {avg, vol}, plus overall avg
+function compute(filter){
+  const cells={}, overall={pv:0,v:0};
+  for(const r of ZIPS){
+    if(filter!=='ALL' && r.s!==filter) continue;
+    if(r.p<=0) continue;
+    overall.pv += r.p*r.v; overall.v += r.v;
+    for(const [dsp,vol] of Object.entries(r.d)){
+      const c=cells[dsp]=cells[dsp]||{pv:0,v:0,ps:0,n:0};
+      c.pv+=r.p*vol; c.v+=vol; c.ps+=r.p; c.n++;
+    }
+  }
+  const out={};
+  for(const [dsp,c] of Object.entries(cells)){
+    out[dsp]={ avg: c.v>0 ? c.pv/c.v : (c.n?c.ps/c.n:null), vol:c.v };
+  }
+  return { dsps: out, avg: overall.v>0 ? overall.pv/overall.v : null };
+}
+
+let chart;
+function render(){
+  const filter = sel.value;
+  const st = compute(filter);
+  const rows = Object.entries(st.dsps).filter(([,x])=>x.avg!==null).sort((a,b)=>b[1].avg-a[1].avg);
+  const labels = rows.map(r=>r[0]), avgs = rows.map(r=>+r[1].avg.toFixed(3)), vols = rows.map(r=>r[1].vol);
+
+  // KPIs
+  $('kpiAvg').textContent = st.avg!==null ? fmtP(st.avg) : '—';
+  if(rows.length){
+    $('kpiHi').textContent = fmtP(rows[0][1].avg); $('kpiHiSub').textContent = rows[0][0];
+    const lo = rows[rows.length-1];
+    $('kpiLo').textContent = fmtP(lo[1].avg); $('kpiLoSub').textContent = lo[0];
+    $('kpiSpread').textContent = '$'+(rows[0][1].avg-lo[1].avg).toFixed(3);
+  }
+  $('chartTitle').textContent = 'Avg price per DSP — ' + (filter==='ALL'?'all Seattle region':filter+' station');
+
+  // insight
+  const above = rows.filter(r=>r[1].avg>st.avg), below = rows.filter(r=>r[1].avg<st.avg);
+  const bigVol = rows.slice().sort((a,b)=>b[1].vol-a[1].vol)[0];
+  let html = '<p>' + (filter==='ALL'?'Across the Seattle region':'Within '+filter) + ', the volume-weighted average price is <strong>'+fmtP(st.avg)+'</strong>/pkg across <strong>'+rows.length+'</strong> DSPs. <strong>'+rows[0][0]+'</strong> earns the highest rate ('+fmtP(rows[0][1].avg)+') and <strong>'+rows[rows.length-1][0]+'</strong> the lowest ('+fmtP(rows[rows.length-1][1].avg)+'), a spread of $'+(rows[0][1].avg-rows[rows.length-1][1].avg).toFixed(3)+'.</p>';
+  html += '<p><strong>'+above.length+'</strong> DSP'+(above.length===1?' sits':'s sit')+' above the selection average and <strong>'+below.length+'</strong> below. The largest volume carrier here is <strong>'+bigVol[0]+'</strong> ('+bigVol[1].vol.toLocaleString()+' pkgs/day at '+fmtP(bigVol[1].avg)+')'+(bigVol[1].avg<st.avg?' — priced below average, which pulls the weighted network rate down; renegotiation there moves the most revenue.':' — priced above average, so its volume lifts the weighted rate.')+'</p>';
+  if(filter==='ALL') html += '<p>Use the station selector to compare a DSP\'s rate across regions — differences between a DSP\'s station-level rates in the matrix below usually reflect ZIP mix (urban core vs long-tail rural) rather than contract differences.</p>';
+  $('insightBody').innerHTML = html;
+
+  // chart
+  if(chart) chart.destroy();
+  chart = new Chart($('dspChart'), {
+    data:{ labels, datasets:[
+      { type:'bar', data:avgs, backgroundColor:labels.map((l,i)=>avgs[i]>=st.avg?'#0f7a5c':'#2a78d6'), borderRadius:3, maxBarThickness:46 },
+      { type:'line', data:labels.map(()=>+st.avg.toFixed(3)), borderColor:'#8b98a3', borderDash:[6,4], borderWidth:1.5, pointRadius:0 }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:(c)=> c.dataset.type==='line' ? 'Selection avg: '+fmtP(st.avg) : ['Avg price: '+fmtP(c.parsed.y), 'DSP volume: '+vols[c.dataIndex].toLocaleString()+' pkgs/day'] }}},
+      scales:{ y:{ title:{display:true,text:'avg $/pkg (volume-weighted)'}, grid:{color:'#e6eaee'},
+                   suggestedMin: Math.floor(Math.min(...avgs)*20)/20 - 0.05, suggestedMax: Math.ceil(Math.max(...avgs)*20)/20 + 0.05 },
+               x:{ grid:{display:false}, ticks:{autoSkip:false, maxRotation:labels.length>8?60:0, font:{size:11}} } }
+    },
+    plugins:[{ id:'lbl', afterDatasetsDraw(c){ const ctx=c.ctx, m=c.getDatasetMeta(0);
+      ctx.save(); ctx.font='600 11px "IBM Plex Mono",monospace'; ctx.fillStyle='#17242f'; ctx.textAlign='center';
+      m.data.forEach((b,i)=>ctx.fillText(avgs[i].toFixed(2), b.x, b.y-5)); ctx.restore(); }}]
+  });
+
+  renderMatrix();
+}
+
+function stationVolumes(){
+  const sv={}; let region=0;
+  for(const r of ZIPS){ if(r.p<=0) continue; sv[r.s]=(sv[r.s]||0)+r.v; region+=r.v; }
+  return {sv, region};
+}
+
+function renderMatrix(){
+  const perSt = {}; STATIONS.forEach(s=>perSt[s]=compute(s).dsps);
+  const {sv, region} = stationVolumes();
+  // DSP overall = station vol-weighted avgs combined by station volume share of the region,
+  // normalized over the stations the DSP operates in
+  const netDsp = {};
+  const allDsps = [...new Set([].concat(...STATIONS.map(s=>Object.keys(perSt[s]))))];
+  for(const d of allDsps){
+    let wsum=0, w=0, vol=0;
+    for(const s of STATIONS){ const c=perSt[s][d]; if(c&&c.avg!==null){ wsum+=c.avg*sv[s]; w+=sv[s]; vol+=c.vol; } }
+    netDsp[d] = { avg: w>0 ? wsum/w : null, vol };
+  }
+  const dsps = allDsps.sort((a,b)=>(netDsp[b].avg??0)-(netDsp[a].avg??0));
+  const vals=[]; dsps.forEach(d=>STATIONS.forEach(s=>{const c=perSt[s][d]; if(c&&c.avg!==null)vals.push(c.avg);}));
+  const lo=Math.min(...vals), hi=Math.max(...vals);
+  const heat=v=>{ if(v===null||v===undefined) return ''; const t=hi>lo?(v-lo)/(hi-lo):0.5;
+    return 'background:rgba(15,122,92,'+(0.06+t*0.34).toFixed(2)+');'; };
+  let h='<thead><tr><th>DSP</th>'+STATIONS.map(s=>'<th>'+s+'</th>').join('')+'<th>Overall</th><th>Vol/day</th></tr></thead><tbody>';
+  for(const d of dsps){
+    const opSt = STATIONS.filter(s=>perSt[s][d]&&perSt[s][d].avg!==null);
+    const wTot = opSt.reduce((a,s)=>a+sv[s],0);
+    h+='<tr><td>'+d+'</td>';
+    for(const s of STATIONS){
+      const c=perSt[s][d];
+      if(c&&c.avg!==null){
+        const wPct=Math.round(sv[s]/wTot*100), rPct=(sv[s]/region*100).toFixed(1);
+        h+='<td class="heat" style="'+heat(c.avg)+'" title="station = '+rPct+'% of region volume; weight in '+d+' overall = '+wPct+'%">'+c.avg.toFixed(3)+'</td>';
+      } else h+='<td style="color:#c3ccd3">—</td>';
+    }
+    const n=netDsp[d];
+    h+='<td style="font-weight:600">'+(n.avg!==null?n.avg.toFixed(3):'—')+'</td><td>'+n.vol.toLocaleString()+'</td></tr>';
+  }
+  const regionAvg = STATIONS.reduce((a,s)=>{const st=compute(s); return a + (st.avg!==null?st.avg*sv[s]:0);},0)/region;
+  h+='<tr><td style="font-weight:600">Station avg</td>'+STATIONS.map(s=>{const a=compute(s).avg;return '<td style="font-weight:600">'+(a!==null?a.toFixed(3):'—')+'</td>';}).join('')+'<td style="font-weight:600">'+regionAvg.toFixed(3)+'</td><td></td></tr></tbody>';
+  $('matrix').innerHTML=h;
+}
+
+// price-sheet awareness (same source the map uses)
+fetch('../data/price_adjustments.csv',{cache:'no-store'})
+  .then(r=>{ if(!r.ok) throw 0; return r.text(); })
+  .then(text=>{
+    const byZip={}; parseCsv(text).forEach(r=>byZip[r.zip]=r.price);
+    let changed=0; ZIPS.forEach(r=>{ const p=byZip[r.z]; if(p!==undefined&&Math.abs(p-r.p)>1e-9){r.p=p;changed++;} });
+    const chip=$('psChip');
+    chip.textContent = changed? 'price sheet applied · '+changed+' adjusted' : 'price sheet loaded · matches base';
+    chip.classList.add('applied');
+  })
+  .catch(()=>{})
+  .finally(render);
+
+sel.addEventListener('change', render);
+})();
+</script>
+</body>
+</html>
