@@ -16,8 +16,11 @@ What it writes:
     analytics/dsp-pricing.html  <script id="pricedata"> line
     data/price_adjustments.csv  full price baseline (zip,price,station,route)
 
-Station pins/addresses/specialists come from data/stations.csv. Stations with blank
-lat/lon are placed at the volume-weighted centre of their ZIPs (amber flag on the map).
+An optional sheet named "Address" (Station | Address | Station Head) is not read as ZIP data;
+its address and head columns are copied into data/stations.csv (station codes like SEA01 match
+sheet SEA). Station pins: exact lat/lon from data/stations.csv when filled in; otherwise the
+centre of the ZIP in the station's address; otherwise the volume-weighted centre of the
+station's own ZIPs. Both fallbacks get an amber "approximate" flag on the map.
 
 Only dependency: openpyxl  (pip install openpyxl)
 """
@@ -55,6 +58,8 @@ def read_workbook(path):
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
     rows, problems = [], []
     for ws in wb.worksheets:
+        if ws.title.strip().lower() == "address":
+            continue
         for i, r in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             r = list(r[:6]) + [None] * (6 - len(r[:6]))
             station, sc, route, price, zipc, vol = r
@@ -91,6 +96,45 @@ def read_stations_csv():
     return meta
 
 
+def read_address_sheet(path):
+    """Address sheet rows -> {code: (address, head)}; codes as written (e.g. SEA01)."""
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    out = {}
+    for ws in wb.worksheets:
+        if ws.title.strip().lower() != "address":
+            continue
+        for r in ws.iter_rows(min_row=2, values_only=True):
+            r = list(r[:3]) + [None] * (3 - len(r[:3]))
+            code = str(r[0] or "").strip()
+            if code:
+                out[code] = (str(r[1] or "").strip(), str(r[2] or "").strip())
+    return out
+
+
+def sync_stations_csv(smeta, addr, station_codes):
+    """Copy Address-sheet address/head into stations.csv (keeps lat/lon/pinyin)."""
+    notes = []
+    for code, (address, head) in addr.items():
+        st = code if code in station_codes else next(
+            (s for s in station_codes if code.upper().startswith(s.upper())), None)
+        if st is None:
+            notes.append(f"Address sheet: {code} matches no station sheet -> ignored")
+            continue
+        m = smeta.setdefault(st, {"station": st})
+        if address:
+            m["address"] = address
+        if head:
+            m["head"] = head
+    cols = ["station", "address", "lat", "lon", "head", "head_pinyin"]
+    order = sorted(smeta, key=lambda s: (s not in station_codes, s))
+    with open(STATIONS_CSV, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, lineterminator="\n")
+        w.writerow(cols)
+        for s in order:
+            w.writerow([smeta[s].get(c, "") for c in cols])
+    return notes
+
+
 def wavg(pairs):
     """pairs = [(value, weight)] -> weighted avg, simple mean if all weights are 0."""
     pairs = [(v, w) for v, w in pairs if v and v > 0]
@@ -110,6 +154,9 @@ def main():
 
     geo = {f["properties"]["zip"]: f for f in json.load(open(GEO_LIB, encoding="utf-8"))["features"]}
     smeta = read_stations_csv()
+    addr = read_address_sheet(xlsx)
+    if addr:
+        problems += sync_stations_csv(smeta, addr, {r["station"] for r in rows})
 
     # ---- aggregate rows -> ZIP records (a ZIP belongs to one station) ----
     zips = {}
@@ -163,8 +210,13 @@ def main():
 
         m = smeta.get(st, {})
         lat, lon = num(m.get("lat")), num(m.get("lon"))
+        azip = re.findall(r"\b(\d{5})(?:-\d{4})?\b", m.get("address") or "")
+        ag = geo.get(azip[-1]) if azip else None
         if lat is not None and lon is not None:
             src = "address"
+        elif ag is not None:
+            lat, lon = float(ag["properties"]["lat"]), float(ag["properties"]["lon"])
+            src = "address_zip"
         else:
             pts = [(z["lat"], z["lon"], z["volume"]) for z in zl if z["lat"] is not None]
             if pts and sum(p[2] for p in pts) == 0:
