@@ -34,12 +34,12 @@ Public repos work on the free plan; private repos need GitHub Pro for Pages.
 
 ## 3. Daily update — new volumes or prices from Excel
 
-1. Replace `data/source/sea_zip_price.xlsx` with the new workbook (same 6 columns, one sheet per station).
+1. Replace `data/source/sea_zip_price.xlsx` with the new workbook (西雅图各站点信息.xlsx format: one sheet per station with the same 6 columns in the same order — Price is column 4, Zipcode column 5 — plus an optional `Address` sheet). The `Address` sheet is skipped as ZIP data; its address and station-head columns are copied into `data/stations.csv` automatically.
 2. Run the build (needs Python 3 and `pip install openpyxl`):
    ```bash
    python tools/build.py
    ```
-   It prints station totals and flags anything odd: ZIPs with no map boundary, missing prices, a ZIP listed under two stations, and any manual CSV price edits it replaced.
+   It prints station totals and flags anything odd: ZIPs with no map boundary, missing prices, a ZIP listed under two stations, and any CSV prices that changed (expected when the workbook has new prices).
 3. Commit and push:
    ```bash
    git add . && git commit -m "Data update $(date +%F)" && git push
@@ -55,7 +55,7 @@ Note: running `tools/build.py` rewrites this CSV from the workbook, so put lasti
 
 ## Station pins
 
-`data/stations.csv` holds each station's address, `lat`, `lon`, specialist name (`head`) and pinyin. While `lat`/`lon` are blank, the pin is placed at the volume-weighted centre of the station's ZIPs and marked with an amber dot. Fill them in and rerun `python tools/build.py`.
+`data/stations.csv` holds each station's address, `lat`, `lon`, specialist name (`head`) and pinyin. Address and head are filled from the workbook's `Address` sheet on every build; `lat`/`lon` and `head_pinyin` are kept as you enter them. While `lat`/`lon` are blank, the pin is placed at the centre of the ZIP in the station's address (or, with no address, the volume-weighted centre of the station's ZIPs) and marked with an amber dot. To place a pin exactly, right-click the building in Google Maps, copy the coordinates into `lat`/`lon`, and rerun `python tools/build.py`.
 
 ## Local preview
 
